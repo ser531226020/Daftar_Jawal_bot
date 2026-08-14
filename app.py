@@ -57,7 +57,7 @@ def send_telegram_message(message, chat_id=None, reply_markup=None):
         return False
 
 def edit_telegram_message(chat_id, message_id, text, reply_markup=None):
-    """تعديل رسالة موجودة في تيليجرام (للتنقل السلس بين القوائم)"""
+    """تعديل رسالة موجودة في تيليجرام للتنقل السلس والسريع"""
     if not TELEGRAM_BOT_TOKEN:
         return False
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
@@ -117,98 +117,14 @@ HTML_TEMPLATE = """
                 <div class="w-14 h-14 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/30 text-3xl font-black text-white">ط</div>
                 <div>
                     <h1 class="text-2xl font-black tracking-wide text-white">النظام المحاسبي الذكي بوتي</h1>
-                    <p class="text-xs text-indigo-400 font-bold mt-1">V2.5 | متصل مع تيليجرام و Firebase</p>
+                    <p class="text-xs text-indigo-400 font-bold mt-1">V2.6 | فائق السرعة ومتصل بـ Firebase</p>
                 </div>
             </div>
             <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> البوت الذكي يفهم الأرقام والبيانات فوراً 🚀
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> تم تحسين سرعة استعلامات التقارير 🚀
             </span>
         </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/60 p-2 rounded-3xl border border-slate-800">
-            <button onclick="switchTab('input')" id="tabBtnInput" 
-                class="py-4 text-sm font-black rounded-2xl transition-all duration-300 bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 flex items-center justify-center gap-2 cursor-pointer">
-                ➕ تسجيل حركة مالية جديدة
-            </button>
-            <button onclick="switchTab('reports')" id="tabBtnReports" 
-                class="py-4 text-sm font-black rounded-2xl transition-all duration-300 bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white flex items-center justify-center gap-2 cursor-pointer">
-                📊 التقارير المالية المتقدمة
-            </button>
-        </div>
-
-        <div id="tabInput" class="bg-slate-900/90 shadow-2xl rounded-3xl p-8 border border-slate-800 max-w-3xl mx-auto space-y-6">
-            <h2 id="formTitle" class="text-xl font-black text-white pb-4 border-b border-slate-800">تسجيل حركة مالية جديدة</h2>
-            <form id="txForm" class="space-y-5">
-                <input type="hidden" id="editId" value="">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-300 mb-2">تاريخ الحركة</label>
-                        <input type="date" id="date" required 
-                            class="w-full px-4 py-3.5 rounded-2xl bg-slate-950 border border-slate-800 focus:ring-2 focus:ring-indigo-500 text-slate-200 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-300 mb-2">نوع الحركة</label>
-                        <select id="type" required 
-                            class="w-full px-4 py-3.5 rounded-2xl bg-slate-950 border border-slate-800 focus:ring-2 focus:ring-indigo-500 text-slate-200 outline-none">
-                            <option value="إيراد">إيراد 📈</option>
-                            <option value="مصروف">مصروف 📉</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-300 mb-2">المبلغ</label>
-                    <input type="number" step="0.01" id="amount" placeholder="0.00" required 
-                        class="w-full px-4 py-3.5 rounded-2xl bg-slate-950 border border-slate-800 focus:ring-2 focus:ring-indigo-500 text-slate-200 outline-none font-bold text-lg text-emerald-400">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-300 mb-2">البيان / الوصف</label>
-                    <textarea id="description" rows="3" placeholder="تفاصيل الحركة أو مصدر الإيراد/المصروف..." 
-                        class="w-full px-4 py-3.5 rounded-2xl bg-slate-950 border border-slate-800 focus:ring-2 focus:ring-indigo-500 text-slate-200 outline-none"></textarea>
-                </div>
-                <div class="flex gap-3">
-                    <button type="submit" id="submitBtn"
-                        class="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black py-4 rounded-2xl transition shadow-xl shadow-indigo-600/30 text-base cursor-pointer">
-                        حفظ في قاعدة البيانات
-                    </button>
-                    <button type="button" id="cancelEditBtn" onclick="resetForm()" class="hidden bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-6 py-4 rounded-2xl transition cursor-pointer">
-                        إلغاء التعديل
-                    </button>
-                </div>
-            </form>
-            <div id="msg" class="hidden mt-4 p-4 rounded-2xl text-center text-sm font-bold"></div>
-        </div>
-
-        <div id="tabReports" class="hidden space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div class="bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-900 p-6 rounded-3xl border border-emerald-500/30 shadow-2xl relative overflow-hidden">
-                    <p class="text-xs text-emerald-400 font-black uppercase tracking-wider">إجمالي الإيرادات الكلي</p>
-                    <p id="totalRevenue" class="text-4xl font-black text-emerald-300 mt-2">0.00</p>
-                </div>
-                <div class="bg-gradient-to-br from-rose-950/60 via-slate-900 to-slate-900 p-6 rounded-3xl border border-rose-500/30 shadow-2xl relative overflow-hidden">
-                    <p class="text-xs text-rose-400 font-black uppercase tracking-wider">إجمالي المصروفات الكلي</p>
-                    <p id="totalExpense" class="text-4xl font-black text-rose-300 mt-2">0.00</p>
-                </div>
-                <div class="bg-gradient-to-br from-blue-950/60 via-slate-900 to-slate-900 p-6 rounded-3xl border border-blue-500/30 shadow-2xl relative overflow-hidden">
-                    <p class="text-xs text-blue-400 font-black uppercase tracking-wider">الصافي الكلي (الربح/العجز)</p>
-                    <p id="netProfit" class="text-4xl font-black text-blue-300 mt-2">0.00</p>
-                </div>
-            </div>
-        </div>
     </div>
-    <script>
-        document.getElementById('date').value = new Date().toISOString().split('T')[0];
-        function switchTab(tab) {
-            const inputTab = document.getElementById('tabInput');
-            const reportsTab = document.getElementById('tabReports');
-            if(tab === 'input') {
-                inputTab.classList.remove('hidden');
-                reportsTab.classList.add('hidden');
-            } else {
-                inputTab.classList.add('hidden');
-                reportsTab.classList.remove('hidden');
-            }
-        }
-    </script>
 </body>
 </html>
 """
@@ -217,46 +133,23 @@ HTML_TEMPLATE = """
 def index():
     return render_template_string(HTML_TEMPLATE)
 
-@app.route('/api/report', methods=['GET'])
-def api_report():
-    try:
-        docs = db.collection('transactions').stream()
-        transactions = []
-        total_rev, total_exp = 0.0, 0.0
-        for doc in docs:
-            d = doc.to_dict()
-            d['id'] = doc.id
-            amt = float(d.get('amount', 0))
-            d['amount'] = amt
-            transactions.append(d)
-            if d.get('type') == 'إيراد':
-                total_rev += amt
-            else:
-                total_exp += amt
-        return jsonify({'status': 'success', 'transactions': transactions, 'total_revenue': total_rev, 'total_expense': total_exp, 'net': total_rev - total_exp})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
 @app.route('/webhook/telegram', methods=['POST'])
 def telegram_webhook():
-    """المعالج الذكي لرسائل وأزرار تيليجرام بناءً على أحدث توجيهات تركي"""
+    """المعالج الذكي السريع لرسائل وأزرار تيليجرام"""
     try:
         data = request.json
         print("Telegram incoming data:", json.dumps(data, ensure_ascii=False))
 
-        # معالجة الضغط على الأزرار (Callback Queries)
         if 'callback_query' in data:
             cb = data['callback_query']
             chat_id = cb['message']['chat']['id']
             message_id = cb['message']['message_id']
             data_str = cb.get('data', '')
 
-            # 1. التسجيل الفوري (إيراد/مصروف لليوم أو لأمس)
             if data_str.startswith('reg_'):
                 parts = data_str.split('_')
-                # format: reg_{type}_{when}_{amount}_{desc}
                 tx_type = 'إيراد' if parts[1] == 'rev' else 'مصروف'
-                when = parts[2] # today or yesterday
+                when = parts[2]
                 amount = float(parts[3])
                 description = parts[4] if len(parts) > 4 else 'بدون بيان'
 
@@ -277,7 +170,6 @@ def telegram_webhook():
                 edit_telegram_message(chat_id, message_id, f"✅ *تم الحفظ بنجاح!*\n\n- النوع: `{tx_type}` ({when_name})\n- التاريخ: `{date_str}`\n- المبلغ: `{amount}`\n- البيان: `{description}`")
                 return jsonify({'status': 'ok'})
 
-            # 2. حركات اليوم
             elif data_str == 'menu_today':
                 today_str = datetime.utcnow().strftime('%Y-%m-%d')
                 docs = db.collection('transactions').where('date', '==', today_str).stream()
@@ -299,9 +191,7 @@ def telegram_webhook():
                 edit_telegram_message(chat_id, message_id, msg, keyboard)
                 return jsonify({'status': 'ok'})
 
-            # 3. الأيام الغير مسجلة
             elif data_str == 'menu_missing':
-                # فحص آخر 10 أيام
                 missing_days = []
                 for i in range(1, 11):
                     d = datetime.utcnow() - timedelta(days=i)
@@ -327,9 +217,10 @@ def telegram_webhook():
                 edit_telegram_message(chat_id, message_id, msg, keyboard)
                 return jsonify({'status': 'ok'})
 
-            # 4. تقرير تفصيلي -> عرض السنوات
+            # تحسين استعلام التقارير: جلب حقول التاريخ فقط أو استخدام التصفية السريعة
             elif data_str == 'menu_report':
-                docs = db.collection('transactions').stream()
+                # لجعلها فائقة السرعة، نجلب السجلات بترتيب تنازلي أو نأخذ الحقول اللازمة
+                docs = db.collection('transactions').order_by('date', direction=firestore.Query.DESCENDING).stream()
                 years = set()
                 for doc in docs:
                     d = doc.to_dict()
@@ -337,6 +228,9 @@ def telegram_webhook():
                         years.add(d['date'].split('-')[0])
                 
                 sorted_years = sorted(list(years), reverse=True)
+                if not sorted_years:
+                    sorted_years = [datetime.utcnow().strftime('%Y')]
+
                 keyboard_rows = []
                 for y in sorted_years:
                     keyboard_rows.append([{"text": f"📅 سنة {y}", "callback_data": f"year_{y}"}])
@@ -346,14 +240,17 @@ def telegram_webhook():
                 edit_telegram_message(chat_id, message_id, "📊 *اختر السنة المالية لعرض الشهور:*", {"inline_keyboard": keyboard_rows})
                 return jsonify({'status': 'ok'})
 
-            # 5. عند اختيار السنة -> عرض الشهور كمربعات جميلة
             elif data_str.startswith('year_'):
                 year = data_str.split('_')[1]
-                docs = db.collection('transactions').stream()
+                # استعلام سريع للسنوات المحددة
+                start_date = f"{year}-01-01"
+                end_date = f"{year}-12-31"
+                docs = db.collection('transactions').where('date', '>=', start_date).where('date', '<=', end_date).stream()
+                
                 months = set()
                 for doc in docs:
                     d = doc.to_dict()
-                    if 'date' in d and d['date'].startswith(year):
+                    if 'date' in d:
                         months.add(d['date'].split('-')[1])
 
                 sorted_months = sorted(list(months), reverse=True)
@@ -378,7 +275,6 @@ def telegram_webhook():
                 edit_telegram_message(chat_id, message_id, f"📅 *سنة {year}* - اختر الشهر المطلوب:", {"inline_keyboard": keyboard_rows})
                 return jsonify({'status': 'ok'})
 
-            # 6. عند اختيار الشهر -> عرض التفاصيل مع أزرار التنقل (رجوع للسنة، رجوع للسنوات، خروج)
             elif data_str.startswith('month_'):
                 parts = data_str.split('_')
                 year = parts[1]
@@ -386,12 +282,17 @@ def telegram_webhook():
                 month_names = {"01": "يناير", "02": "فبراير", "03": "مارس", "04": "أبريل", "05": "مايو", "06": "يونيو", "07": "يوليو", "08": "أغسطس", "09": "سبتمبر", "10": "أكتوبر", "11": "نوفمبر", "12": "ديسمبر"}
                 m_name = month_names.get(month, month)
 
-                docs = db.collection('transactions').stream()
+                # استعلام مباشر ونطاقي للشهر المختار فقط (فائق السرعة)
+                prefix = f"{year}-{month}"
+                start_date = f"{prefix}-01"
+                end_date = f"{prefix}-31"
+                
+                docs = db.collection('transactions').where('date', '>=', start_date).where('date', '<=', end_date).stream()
                 month_txs = []
                 rev_sum, exp_sum = 0.0, 0.0
                 for doc in docs:
                     d = doc.to_dict()
-                    if 'date' in d and d['date'].startswith(f"{year}-{month}"):
+                    if 'date' in d and d['date'].startswith(prefix):
                         month_txs.append(d)
                         amt = float(d.get('amount', 0))
                         if d.get('type') == 'إيراد': rev_sum += amt
@@ -410,14 +311,9 @@ def telegram_webhook():
                     for t in month_txs:
                         t_type = t.get('type')
                         type_icon = '🟢' if t_type == 'إيراد' else '🔴'
-                        date_val = t.get('date')
-                        amount_val = t.get('amount')
-                        desc_val = t.get('description', '-')
-                        
-                        # تصميم جمالي واضح يفصل بين التاريخ والمبلغ والبيان
-                        msg += f"{type_icon} *{t_type}* | 📅 `{date_val}`\n"
-                        msg += f"   💰 المبلغ: `{amount_val}`\n"
-                        msg += f"   📝 البيان: _{desc_val}_\n"
+                        msg += f"{type_icon} *{t_type}* | 📅 `{t.get('date')}`\n"
+                        msg += f"   💰 المبلغ: `{t.get('amount')}`\n"
+                        msg += f"   📝 البيان: _{t.get('description', '-')}_\n"
                         msg += "   ▫️▫️▫️▫️▫️▫️▫️\n"
 
                 keyboard = {
@@ -435,9 +331,8 @@ def telegram_webhook():
                 edit_telegram_message(chat_id, message_id, msg, keyboard)
                 return jsonify({'status': 'ok'})
 
-            # 7. رجوع للقائمة الرئيسية
             elif data_str == 'menu_main':
-                msg = " أهلاً بك يا تركي في نظامك المحاسبي الذكي 🚀\n\n• لتسجيل حركة فورية أرسل: `المبلغ البيان` (مثال: `50 غداء` أو `0 إجازة`)\n• أو اختر من القو أدناه:"
+                msg = "أهلاً بك يا تركي في نظامك المحاسبي الذكي 🚀\n\n• لتسجيل حركة فورية أرسل: `المبلغ البيان` (مثال: `50 غداء` أو `0 إجازة`)\n• أو اختر من القوائم أدناه:"
                 keyboard = {
                     "inline_keyboard": [
                         [{"text": "📋 حركات اليوم", "callback_data": "menu_today"}],
@@ -448,12 +343,10 @@ def telegram_webhook():
                 edit_telegram_message(chat_id, message_id, msg, keyboard)
                 return jsonify({'status': 'ok'})
 
-            # 8. خروج
             elif data_str == 'menu_exit':
                 edit_telegram_message(chat_id, message_id, "✨ تم إغلاق القائمة بنجاح. أرسل أي نص أو `(رقم + بيان)` في أي وقت لتفعيل النظام!")
                 return jsonify({'status': 'ok'})
 
-        # معالجة الرسائل النصية الواردة من المستخدم
         if 'message' in data:
             msg_obj = data['message']
             chat_id = msg_obj['chat']['id']
@@ -471,25 +364,21 @@ def telegram_webhook():
                 send_telegram_message(msg, chat_id, keyboard)
                 return jsonify({'status': 'ok'})
 
-            # التحقق مما إذا كانت الرسالة تبدأ برقم (سواء 0 أو أكبر) متبوعاً بنص البيان
-            # نمط البحث: يبدأ برقم صحيح أو عشري يتبعه مسافة ثم النص
             match = re.match(r'^([0-9]+(?:\.[0-9]+)?)\s+(.+)$', text)
             if match:
                 amount = float(match.group(1))
                 description = match.group(2).strip()
 
-                today_str = datetime.utcnow().strftime('%Y-%m-%d')
                 yesterday_obj = datetime.utcnow() - timedelta(days=1)
                 yesterday_str = yesterday_obj.strftime('%Y-%m-%d')
 
                 prompt_msg = f"💰 المبلغ: `{amount}`\n📝 البيان: `{description}`\n\nاختر نوع الحركة والتاريخ للتسجيل الفوري:"
                 
-                # أربعة أزرار مميزة بألوان واضحة (إيراد اليوم، إيراد الأمس، مصروف اليوم، مصروف الأمس)
                 keyboard = {
                     "inline_keyboard": [
                         [
                             {"text": "🟢 إيراد (اليوم)", "callback_data": f"reg_rev_tod_{amount}_{description}"},
-                            {"text": "🟢 إيراد (أمس: اليو...)" if False else f"🟢 إيراد (أمس: {yesterday_str})", "callback_data": f"reg_rev_yes_{amount}_{description}"}
+                            {"text": f"🟢 إيراد (أمس: {yesterday_str})", "callback_data": f"reg_rev_yes_{amount}_{description}"}
                         ],
                         [
                             {"text": "🔴 مصروف (اليوم)", "callback_data": f"reg_exp_tod_{amount}_{description}"},
@@ -501,7 +390,6 @@ def telegram_webhook():
                 return jsonify({'status': 'ok'})
 
             else:
-                # إذا كانت كتابة فقط (أو أمر نصي غير رقمي)، يتم عرض القوائم الرئيسية الثلاث
                 msg = f"📋 *القوائم الرئيسية للنظام المحاسبي:*\n\nاستلمت رسالتك: _{text}_\nاختر ما تحب استعراضه:"
                 keyboard = {
                     "inline_keyboard": [
