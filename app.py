@@ -146,7 +146,6 @@ def telegram_webhook():
             message_id = cb['message']['message_id']
             data_str = cb.get('data', '')
 
-            # تسجيل الحركة المباشرة (اليوم أو أمس)
             if data_str.startswith('reg_'):
                 parts = data_str.split('_')
                 tx_type = 'إيراد' if parts[1] == 'rev' else 'مصروف'
@@ -171,18 +170,16 @@ def telegram_webhook():
                 edit_telegram_message(chat_id, message_id, f"✅ *تم الحفظ بنجاح!*\n\n📌 النوع: `{tx_type}`\n📅 التاريخ: `{date_str}` ({when_name})\n💰 المبلغ: `{amount}`\n📝 البيان: `{description}`")
                 return jsonify({'status': 'ok'})
 
-            # فتح قائمة اختيار التاريخ المبسطة (بدون تعقيد)
             elif data_str.startswith('pickdate_'):
                 parts = data_str.split('_')
-                tx_type = parts[1] # rev أو exp
+                tx_type = parts[1]
                 amount = parts[2]
                 description = parts[3] if len(parts) > 3 else 'بدون بيان'
 
-                # توليد أزرار واضحة لآخر 5 أيام بشكل مرتب وبسيط
                 keyboard_rows = []
                 day_names_ar = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
                 
-                for i in range(2, 7): # من قبل أمس وحتى 5 أيام مضت
+                for i in range(2, 7):
                     d = datetime.utcnow() - timedelta(days=i)
                     d_str = d.strftime('%Y-%m-%d')
                     d_name = day_names_ar[d.weekday()]
@@ -194,7 +191,6 @@ def telegram_webhook():
                 edit_telegram_message(chat_id, message_id, f"📅 *اختر اليوم المطلوب للـ {type_name}:*\n- المبلغ: `{amount}`\n- البيان: `{description}`", {"inline_keyboard": keyboard_rows})
                 return jsonify({'status': 'ok'})
 
-            # حفظ الحركة بالتاريخ المختار بوضوح
             elif data_str.startswith('savdate_'):
                 parts = data_str.split('_')
                 tx_type = 'إيراد' if parts[1] == 'rev' else 'مصروف'
@@ -213,7 +209,6 @@ def telegram_webhook():
                 edit_telegram_message(chat_id, message_id, f"✅ *تم الحفظ بنجاح!*\n\n📌 النوع: `{tx_type}`\n📅 التاريخ: `{date_str}`\n💰 المبلغ: `{amount}`\n📝 البيان: `{description}`")
                 return jsonify({'status': 'ok'})
 
-            # الرجوع للخيارات الرئيسية السريعة
             elif data_str.startswith('back_to_reg_'):
                 parts = data_str.split('_')
                 amount = parts[3]
@@ -473,10 +468,4 @@ def telegram_webhook():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port5000=5000)
-```
-eof
-
-### مميزات التحديث الجديد:
-1. **أزرار مبسطة جداً:** عند إرسال أي مبلغ وبيان (مثل `50 فطور`)، تظهر لك خيارات مباشرة وواضحة (`إيراد اليوم`، `إيراد أمس`، `مصروف اليوم`، `مصروف أمس`) أو زر (`يوم آخر`) إذا أردت الاختيار من الأيام الماضية بضغطة زر واحدة وبدون أي كتابة معقدة.
-2. **عرض واضح ونظيف:** تم تنسيق رسائل التأكيد والتقارير لتكون مختصرة وخالية من التعقيد.
+    app.run(debug=True, host='0.0.0.0', port=5000)
