@@ -400,12 +400,25 @@ def telegram_webhook():
                 month_txs.sort(key=lambda x: x['date'], reverse=True)
 
                 msg = f"📊 *تقرير شهر {m_name} ({year}):*\n"
-                msg += f"📈 الإيرادات: `{rev_sum:,.2f}` | 📉 المصروفات: `{exp_sum:,.2f}` | 💰 الصافي: `{(rev_sum - exp_sum):,.2f}`\n\n"
+                msg += f"📈 الإيرادات: `{rev_sum:,.2f}` | 📉 المصروفات: `{exp_sum:,.2f}`\n"
+                msg += f"💰 الصافي: `{(rev_sum - exp_sum):,.2f}`\n"
+                msg += "──────────────────\n"
+                
                 if not month_txs:
                     msg += "لا توجد حركات مسجلة في هذا الشهر."
                 else:
                     for t in month_txs:
-                        msg += f"• `{t.get('date')}` | *{t.get('type')}* | `{t.get('amount')}` | {t.get('description', '-')}\n"
+                        t_type = t.get('type')
+                        type_icon = '🟢' if t_type == 'إيراد' else '🔴'
+                        date_val = t.get('date')
+                        amount_val = t.get('amount')
+                        desc_val = t.get('description', '-')
+                        
+                        # تصميم جمالي واضح يفصل بين التاريخ والمبلغ والبيان
+                        msg += f"{type_icon} *{t_type}* | 📅 `{date_val}`\n"
+                        msg += f"   💰 المبلغ: `{amount_val}`\n"
+                        msg += f"   📝 البيان: _{desc_val}_\n"
+                        msg += "   ▫️▫️▫️▫️▫️▫️▫️\n"
 
                 keyboard = {
                     "inline_keyboard": [
@@ -466,19 +479,20 @@ def telegram_webhook():
                 description = match.group(2).strip()
 
                 today_str = datetime.utcnow().strftime('%Y-%m-%d')
-                yesterday_str = (datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%d')
+                yesterday_obj = datetime.utcnow() - timedelta(days=1)
+                yesterday_str = yesterday_obj.strftime('%Y-%m-%d')
 
                 prompt_msg = f"💰 المبلغ: `{amount}`\n📝 البيان: `{description}`\n\nاختر نوع الحركة والتاريخ للتسجيل الفوري:"
                 
-                # الأربعة مربعات المطلوبة بالضبط
+                # أربعة أزرار مميزة بألوان واضحة (إيراد اليوم، إيراد الأمس، مصروف اليوم، مصروف الأمس)
                 keyboard = {
                     "inline_keyboard": [
                         [
                             {"text": "🟢 إيراد (اليوم)", "callback_data": f"reg_rev_tod_{amount}_{description}"},
-                            {"text": "🔴 مصروف (اليوم)", "callback_data": f"reg_exp_tod_{amount}_{description}"}
+                            {"text": "🟢 إيراد (أمس: اليو...)" if False else f"🟢 إيراد (أمس: {yesterday_str})", "callback_data": f"reg_rev_yes_{amount}_{description}"}
                         ],
                         [
-                            {"text": f"🟢 إيراد (أمس: {yesterday_str})", "callback_data": f"reg_rev_yes_{amount}_{description}"},
+                            {"text": "🔴 مصروف (اليوم)", "callback_data": f"reg_exp_tod_{amount}_{description}"},
                             {"text": f"🔴 مصروف (أمس: {yesterday_str})", "callback_data": f"reg_exp_yes_{amount}_{description}"}
                         ]
                     ]
