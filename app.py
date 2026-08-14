@@ -7,7 +7,6 @@ from flask import Flask, jsonify, render_template_string, request
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 
-# تهيئة Firebase
 if 'FIREBASE_CONFIG_JSON' in os.environ:
     try:
         raw_config = os.environ['FIREBASE_CONFIG_JSON'].strip()
@@ -31,9 +30,8 @@ if not firebase_admin._apps:
 db = firestore.client()
 app = Flask(__name__)
 
-# إعدادات بوت تيليجرام (من متغيرات البيئة أو قيمة افتراضية)
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
-TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '') # معرف الشات الخاص بك لتلقي التنبيهات
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
 
 def send_telegram_message(message, chat_id=None):
     """إرسال رسالة عبر بوت تيليجرام"""
@@ -54,35 +52,25 @@ def send_telegram_message(message, chat_id=None):
         print(f"خطأ في إرسال رسالة تيليجرام: {e}")
         return False
 
-# وظيفة الفحص والجدولة اليومية (الساعة 12:10 صباحاً)
 def daily_check_yesterday_transaction():
     """فحص ما إذا تم تسجيل حركة لليوم السابق، وإن لم يوجد يرسل تنبيه تيليجرام"""
     try:
-        # حساب تاريخ الأمس
         yesterday = datetime.utcnow() - timedelta(days=1)
         yesterday_str = yesterday.strftime('%Y-%m-%d')
         
         day_names_ar = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
         day_name = day_names_ar[yesterday.weekday()]
 
-        # جلب الحركات من فايربيس المطابقة لتاريخ الأمس
         docs = db.collection('transactions').where('date', '==', yesterday_str).stream()
         records = [doc.to_dict() for doc in docs]
-
-        # تصفية الحركات الوهمية أو الفارغة
         valid_records = [r for r in records if r.get('description') != 'إجازة' and float(r.get('amount', 0)) > 0]
 
         if not valid_records:
-            # لم يتم التسجيل، إرسال تنبيه عبر تيليجرام
             msg = f"⚠️ *تنبيه محاسبي هام!*\n\nعزيزي تركي، لاحظنا أنه لم يتم تسجيل أي حركة مالية ليوم أمس *{day_name} ({yesterday_str})*.\n\nيرجى تسجيل الحركة أو مراجعة النظام في أقرب وقت! 💡"
             send_telegram_message(msg)
-            print(f"تم إرسال تنبيه غياب تسجيل ليوم: {yesterday_str}")
-        else:
-            print(f"تم التحقق: يوجد حركات مسجلة ليوم أمس {yesterday_str} بنجاح.")
     except Exception as e:
         print(f"خطأ في الفحص اليومي: {e}")
 
-# تهيئة الجدولة الخلفية
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=daily_check_yesterday_transaction, trigger="cron", hour=0, minute=10)
 scheduler.start()
@@ -100,8 +88,6 @@ HTML_TEMPLATE = """
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen py-8 px-4">
     <div class="max-w-7xl mx-auto space-y-6">
-        
-        <!-- الهيدر المؤسسي -->
         <div class="bg-slate-900/90 backdrop-blur-xl shadow-2xl rounded-3xl p-6 border border-slate-800 flex flex-wrap justify-between items-center gap-4">
             <div class="flex items-center space-x-4 space-x-reverse">
                 <div class="w-14 h-14 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/30 text-3xl font-black text-white">ط</div>
@@ -115,7 +101,6 @@ HTML_TEMPLATE = """
             </span>
         </div>
 
-        <!-- أزرار التبويبات -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/60 p-2 rounded-3xl border border-slate-800">
             <button onclick="switchTab('input')" id="tabBtnInput" 
                 class="py-4 text-sm font-black rounded-2xl transition-all duration-300 bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 flex items-center justify-center gap-2 cursor-pointer">
@@ -127,7 +112,6 @@ HTML_TEMPLATE = """
             </button>
         </div>
 
-        <!-- التبويب الأول: تسجيل حركة جديدة -->
         <div id="tabInput" class="bg-slate-900/90 shadow-2xl rounded-3xl p-8 border border-slate-800 max-w-3xl mx-auto space-y-6">
             <h2 id="formTitle" class="text-xl font-black text-white pb-4 border-b border-slate-800">تسجيل حركة مالية جديدة</h2>
             <form id="txForm" class="space-y-5">
@@ -170,7 +154,6 @@ HTML_TEMPLATE = """
             <div id="msg" class="hidden mt-4 p-4 rounded-2xl text-center text-sm font-bold"></div>
         </div>
 
-        <!-- التبويب الثاني: التقارير المالية المتقدمة -->
         <div id="tabReports" class="hidden space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div class="bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-900 p-6 rounded-3xl border border-emerald-500/30 shadow-2xl relative overflow-hidden">
@@ -187,7 +170,6 @@ HTML_TEMPLATE = """
                 </div>
             </div>
 
-            <!-- لوحة التحكم بالتقارير -->
             <div class="bg-slate-900/90 p-6 rounded-3xl border border-slate-800 shadow-xl space-y-5">
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <h3 class="text-base font-black text-indigo-300">🔍 تصفية التقارير حسب السنوات والشهور</h3>
@@ -632,7 +614,6 @@ def delete_transaction(tx_id):
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# استقبال ويب هوك (Webhook) من تيليجرام لإدارة البوت
 @app.route('/webhook/telegram', methods=['POST'])
 def telegram_webhook():
     try:
@@ -645,7 +626,6 @@ def telegram_webhook():
             if text == '/start':
                 send_telegram_message("أهلاً بك يا تركي في نظامك المحاسبي الذكي عبر تيليجرام 🚀\n\nالأوامر المتاحة:\n- `/stats` لعرض إجمالي الإيرادات والمصروفات\n- لتسجيل حركة مباشرة أرسل بالشكل:\n`إيراد 500 مبيعات متجر` أو `مصروف 120 فاتورة كهرباء`", chat_id)
             elif text == '/stats':
-                # حساب الإيرادات والمصروفات سريعاً
                 docs = db.collection('transactions').stream()
                 rev, exp = 0.0, 0.0
                 for doc in docs:
@@ -656,7 +636,6 @@ def telegram_webhook():
                 net = rev - exp
                 send_telegram_message(f"📊 *التقرير المالي السريع:*\n\n📈 الإيرادات: `{rev:,.2f}`\n📉 المصروفات: `{exp:,.2f}`\n💰 الصافي: `{net:,.2f}`", chat_id)
             else:
-                # محاولة تفسير الرسالة كتسجيل حركة مالية سريعة (مثال: إيراد 300 مبيعات)
                 parts = text.split(' ', 2)
                 if len(parts) >= 2 and parts[0] in ['إيراد', 'مصروف']:
                     tx_type = parts[0]
