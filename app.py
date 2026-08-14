@@ -117,11 +117,11 @@ HTML_TEMPLATE = """
                 <div class="w-14 h-14 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/30 text-3xl font-black text-white">ط</div>
                 <div>
                     <h1 class="text-2xl font-black tracking-wide text-white">النظام المحاسبي الذكي بوتي</h1>
-                    <p class="text-xs text-indigo-400 font-bold mt-1">V2.6 | فائق السرعة ومتصل بـ Firebase</p>
+                    <p class="text-xs text-indigo-400 font-bold mt-1">V2.7 | يدعم اختيار الأيام المخصصة بسهولة فائقة</p>
                 </div>
             </div>
             <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> تم تحسين سرعة استعلامات التقارير 🚀
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> تم تفعيل اختيار التاريخ المخصص 🚀
             </span>
         </div>
     </div>
@@ -146,6 +146,7 @@ def telegram_webhook():
             message_id = cb['message']['message_id']
             data_str = cb.get('data', '')
 
+            # تسجيل الحركة المباشرة (اليوم أو أمس)
             if data_str.startswith('reg_'):
                 parts = data_str.split('_')
                 tx_type = 'إيراد' if parts[1] == 'rev' else 'مصروف'
@@ -168,6 +169,74 @@ def telegram_webhook():
 
                 when_name = 'اليوم' if when == 'tod' else 'أمس'
                 edit_telegram_message(chat_id, message_id, f"✅ *تم الحفظ بنجاح!*\n\n- النوع: `{tx_type}` ({when_name})\n- التاريخ: `{date_str}`\n- المبلغ: `{amount}`\n- البيان: `{description}`")
+                return jsonify({'status': 'ok'})
+
+            # فتح قائمة اختيار تاريخ مخصص للحركة (بأزرار جاهزة بنقرة واحدة)
+            elif data_str.startswith('pickdate_'):
+                parts = data_str.split('_')
+                tx_type = parts[1] # rev أو exp
+                amount = parts[2]
+                description = parts[3] if len(parts) > 3 else 'بدون بيان'
+
+                # توليد قائمة بأزرار آخر 7 أيام لتسهيل الاختيار الفوري بالضغط المباشر
+                keyboard_rows = []
+                day_names_ar = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+                
+                for i in range(2, 9): # من قبل أمس وحتى قبل 8 أيام
+                    d = datetime.utcnow() - timedelta(days=i)
+                    d_str = d.strftime('%Y-%m-%d')
+                    d_name = day_names_ar[d.weekday()]
+                    keyboard_rows.append([{"text": f"📅 {d_name} ({d_str})", "callback_data": f"savdate_{tx_type}_{d_str}_{amount}_{description}"}])
+
+                keyboard_rows.append([{"text": "🔙 رجوع للخيار السابق", "callback_data": f"back_to_reg_{amount}_{description}"}])
+                
+                type_name = 'إيراد' if tx_type == 'rev' else 'مصروف'
+                edit_telegram_message(chat_id, message_id, f"📅 *اختر التاريخ المطلوب لتسجيل الـ {type_name} بضغطة زر:*\n- المبلغ: `{amount}`\n- البيان: `{description}`", {"inline_keyboard": keyboard_rows})
+                return jsonify({'status': 'ok'})
+
+            # حفظ الحركة بالتاريخ المخصص المختار عبر الزر
+            elif data_str.startswith('savdate_'):
+                parts = data_str.split('_')
+                tx_type = 'إيراد' if parts[1] == 'rev' else 'مصروف'
+                date_str = parts[2]
+                amount = float(parts[3])
+                description = parts[4] if len(parts) > 4 else 'بدون بيان'
+
+                db.collection('transactions').add({
+                    'date': date_str,
+                    'type': tx_type,
+                    'amount': amount,
+                    'description': description,
+                    'created_at': datetime.utcnow()
+                })
+
+                edit_telegram_message(chat_id, message_id, f"✅ *تم الحفظ بنجاح بالتاريخ المخصص!*\n\n- النوع: `{tx_type}`\n- التاريخ المختار: `{date_str}`\n- المبلغ: `{amount}`\n- البيان: `{description}`")
+                return jsonify({'status': 'ok'})
+
+            # الرجوع لقائمة الخيارات الرئيسية (اليوم وأمس)
+            elif data_str.startswith('back_to_reg_'):
+                parts = data_str.split('_')
+                amount = parts[3]
+                description = parts[4] if len(parts) > 4 else 'بدون بيان'
+                
+                prompt_msg = f"💰 المبلغ: `{amount}`\n📝 البيان: `{description}`\n\nاختر نوع الحركة والتاريخ للتسجيل الفوري:"
+                keyboard = {
+                    "inline_keyboard": [
+                        [
+                            {"text": "🟢 إيراد (اليوم)", "callback_data": f"reg_rev_tod_{amount}_{description}"},
+                            {"text": f"🟢 إيراد (أمس)", "callback_data": f"reg_rev_yes_{amount}_{description}"}
+                        ],
+                        [
+                            {"text": "🔴 مصروف (اليوم)", "callback_data": f"reg_exp_tod_{amount}_{description}"},
+                            {"text": f"🔴 مصروف (أمس)", "callback_data": f"reg_exp_yes_{amount}_{description}"}
+                        ],
+                        [
+                            {"text": "📅 اختيار تاريخ مخصص (إيراد)", "callback_data": f"pickdate_rev_{amount}_{description}"},
+                            {"text": "📅 اختيار تاريخ مخصص (مصروف)", "callback_data": f"pickdate_exp_{amount}_{description}"}
+                        ]
+                    ]
+                }
+                edit_telegram_message(chat_id, message_id, prompt_msg, keyboard)
                 return jsonify({'status': 'ok'})
 
             elif data_str == 'menu_today':
@@ -217,10 +286,8 @@ def telegram_webhook():
                 edit_telegram_message(chat_id, message_id, msg, keyboard)
                 return jsonify({'status': 'ok'})
 
-            # تحسين استعلام التقارير: جلب حقول التاريخ فقط أو استخدام التصفية السريعة
             elif data_str == 'menu_report':
-                # لجعلها فائقة السرعة، نجلب السجلات بترتيب تنازلي أو نأخذ الحقول اللازمة
-                docs = db.collection('transactions').order_by('date', direction=firestore.Query.DESCENDING).stream()
+                docs = db.collection('transactions').stream()
                 years = set()
                 for doc in docs:
                     d = doc.to_dict()
@@ -242,7 +309,6 @@ def telegram_webhook():
 
             elif data_str.startswith('year_'):
                 year = data_str.split('_')[1]
-                # استعلام سريع للسنوات المحددة
                 start_date = f"{year}-01-01"
                 end_date = f"{year}-12-31"
                 docs = db.collection('transactions').where('date', '>=', start_date).where('date', '<=', end_date).stream()
@@ -282,7 +348,6 @@ def telegram_webhook():
                 month_names = {"01": "يناير", "02": "فبراير", "03": "مارس", "04": "أبريل", "05": "مايو", "06": "يونيو", "07": "يوليو", "08": "أغسطس", "09": "سبتمبر", "10": "أكتوبر", "11": "نوفمبر", "12": "ديسمبر"}
                 m_name = month_names.get(month, month)
 
-                # استعلام مباشر ونطاقي للشهر المختار فقط (فائق السرعة)
                 prefix = f"{year}-{month}"
                 start_date = f"{prefix}-01"
                 end_date = f"{prefix}-31"
@@ -369,20 +434,21 @@ def telegram_webhook():
                 amount = float(match.group(1))
                 description = match.group(2).strip()
 
-                yesterday_obj = datetime.utcnow() - timedelta(days=1)
-                yesterday_str = yesterday_obj.strftime('%Y-%m-%d')
-
                 prompt_msg = f"💰 المبلغ: `{amount}`\n📝 البيان: `{description}`\n\nاختر نوع الحركة والتاريخ للتسجيل الفوري:"
                 
                 keyboard = {
                     "inline_keyboard": [
                         [
                             {"text": "🟢 إيراد (اليوم)", "callback_data": f"reg_rev_tod_{amount}_{description}"},
-                            {"text": f"🟢 إيراد (أمس: {yesterday_str})", "callback_data": f"reg_rev_yes_{amount}_{description}"}
+                            {"text": f"🟢 إيراد (أمس)", "callback_data": f"reg_rev_yes_{amount}_{description}"}
                         ],
                         [
                             {"text": "🔴 مصروف (اليوم)", "callback_data": f"reg_exp_tod_{amount}_{description}"},
-                            {"text": f"🔴 مصروف (أمس: {yesterday_str})", "callback_data": f"reg_exp_yes_{amount}_{description}"}
+                            {"text": "🔴 مصروف (أمس)", "callback_data": f"reg_exp_yes_{amount}_{description}"}
+                        ],
+                        [
+                            {"text": "📅 اختيار تاريخ مخصص (إيراد)", "callback_data": f"pickdate_rev_{amount}_{description}"},
+                            {"text": "📅 اختيار تاريخ مخصص (مصروف)", "callback_data": f"pickdate_exp_{amount}_{description}"}
                         ]
                     ]
                 }
