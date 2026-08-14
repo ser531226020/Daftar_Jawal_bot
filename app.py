@@ -8,7 +8,7 @@ from flask import Flask, jsonify, render_template_string, request
 if 'FIREBASE_CONFIG_JSON' in os.environ:
     try:
         raw_config = os.environ['FIREBASE_CONFIG_JSON'].strip()
-        # تنظيف علامات التنصيص الزائدة إن وجدت
+        # تنظيف علامات التنصيص الزائدة إن وجدت لضمان عدم حدوث JSONDecodeError
         if raw_config.startswith("'") and raw_config.endswith("'"):
             raw_config = raw_config[1:-1]
         elif raw_config.startswith('"') and raw_config.endswith('"'):
@@ -585,9 +585,10 @@ def add_transaction():
 
 @app.route('/update/<tx_id>', methods=['PUT'])
 def update_transaction(tx_id):
+    history = db.collection('transactions').document(tx_id)
     try:
         data = request.json
-        db.collection('transactions').document(tx_id).update({
+        history.update({
             'date': data.get('date'),
             'type': data.get('type'),
             'amount': float(data.get('amount', 0)),
