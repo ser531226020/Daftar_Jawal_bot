@@ -1,14 +1,16 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 from flask import Flask, jsonify, render_template_string, request
+import requests
+from apscheduler.schedulers.background import BackgroundScheduler
 
+# تهيئة Firebase
 if 'FIREBASE_CONFIG_JSON' in os.environ:
     try:
         raw_config = os.environ['FIREBASE_CONFIG_JSON'].strip()
-        # تنظيف علامات التنصيص الزائدة إن وجدت لضمان عدم حدوث JSONDecodeError
         if raw_config.startswith("'") and raw_config.endswith("'"):
             raw_config = raw_config[1:-1]
         elif raw_config.startswith('"') and raw_config.endswith('"'):
@@ -21,7 +23,7 @@ if 'FIREBASE_CONFIG_JSON' in os.environ:
 elif os.path.exists("serviceAccountKey.json"):
     cred = credentials.Certificate("serviceAccountKey.json")
 else:
-    raise FileNotFoundError("تنبيه هام: لم يتم العثور على ملف serviceAccountKey.json محلياً ولا متغير البيئة FIREBASE_CONFIG_JSON!")
+    raise FileNotFoundError("تنبيه هام: لم يتم العثور على ملف serviceAccountKey.json محلياً ولا متغير البيئة!")
 
 if not firebase_admin._apps:
     firebase_admin.initialize_app(cred, {"projectId": "turki-2030"})
@@ -29,13 +31,69 @@ if not firebase_admin._apps:
 db = firestore.client()
 app = Flask(__name__)
 
+# إعدادات بوت تيليجرام (من متغيرات البيئة أو قيمة افتراضية)
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '') # معرف الشات الخاص بك لتلقي التنبيهات
+
+def send_telegram_message(message, chat_id=None):
+    """إرسال رسالة عبر بوت تيليجرام"""
+    target_chat = chat_id or TELEGRAM_CHAT_ID
+    if not TELEGRAM_BOT_TOKEN or not target_chat:
+        print("تنبيه: توكن تيليجرام أو معرف الشات غير متوفر لإرسال الرسالة.")
+        return False
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": target_chat,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        return response.json().get('ok', False)
+    except Exception as e:
+        print(f"خطأ في إرسال رسالة تيليجرام: {e}")
+        return False
+
+# وظيفة الفحص والجدولة اليومية (الساعة 12:10 صباحاً)
+def daily_check_yesterday_transaction():
+    """فحص ما إذا تم تسجيل حركة لليوم السابق، وإن لم يوجد يرسل تنبيه تيليجرام"""
+    try:
+        # حساب تاريخ الأمس
+        yesterday = datetime.utcnow() - timedelta(days=1)
+        yesterday_str = yesterday.strftime('%Y-%m-%d')
+        
+        day_names_ar = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+        day_name = day_names_ar[yesterday.weekday()]
+
+        # جلب الحركات من فايربيس المطابقة لتاريخ الأمس
+        docs = db.collection('transactions').where('date', '==', yesterday_str).stream()
+        records = [doc.to_dict() for doc in docs]
+
+        # تصفية الحركات الوهمية أو الفارغة
+        valid_records = [r for r in records if r.get('description') != 'إجازة' and float(r.get('amount', 0)) > 0]
+
+        if not valid_records:
+            # لم يتم التسجيل، إرسال تنبيه عبر تيليجرام
+            msg = f"⚠️ *تنبيه محاسبي هام!*\n\nعزيزي تركي، لاحظنا أنه لم يتم تسجيل أي حركة مالية ليوم أمس *{day_name} ({yesterday_str})*.\n\nيرجى تسجيل الحركة أو مراجعة النظام في أقرب وقت! 💡"
+            send_telegram_message(msg)
+            print(f"تم إرسال تنبيه غياب تسجيل ليوم: {yesterday_str}")
+        else:
+            print(f"تم التحقق: يوجد حركات مسجلة ليوم أمس {yesterday_str} بنجاح.")
+    except Exception as e:
+        print(f"خطأ في الفحص اليومي: {e}")
+
+# تهيئة الجدولة الخلفية
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=daily_check_yesterday_transaction, trigger="cron", hour=0, minute=10)
+scheduler.start()
+
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>النظام المالي المؤسسي - V1.0</title>
+    <title>النظام المالي المؤسسي - مع إدارة تيليجرام الذكية</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style> body { font-family: 'Cairo', sans-serif; } </style>
@@ -48,12 +106,12 @@ HTML_TEMPLATE = """
             <div class="flex items-center space-x-4 space-x-reverse">
                 <div class="w-14 h-14 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/30 text-3xl font-black text-white">ط</div>
                 <div>
-                    <h1 class="text-2xl font-black tracking-wide text-white">النظام المحاسبي الذكي</h1>
-                    <p class="text-xs text-indigo-400 font-bold mt-1">V1.0 | تركي المحمادي</p>
+                    <h1 class="text-2xl font-black tracking-wide text-white">النظام المحاسبي الذكي بوتي</h1>
+                    <p class="text-xs text-indigo-400 font-bold mt-1">V2.0 | متصل مع تيليجرام و Firebase</p>
                 </div>
             </div>
             <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> متصل بـ Firebase
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> التنبيهات الآلية مفعلة (12:10 ص)
             </span>
         </div>
 
@@ -129,7 +187,7 @@ HTML_TEMPLATE = """
                 </div>
             </div>
 
-            <!-- لوحة الفرز والفلترة -->
+            <!-- لوحة التحكم بالتقارير -->
             <div class="bg-slate-900/90 p-6 rounded-3xl border border-slate-800 shadow-xl space-y-5">
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <h3 class="text-base font-black text-indigo-300">🔍 تصفية التقارير حسب السنوات والشهور</h3>
@@ -155,7 +213,6 @@ HTML_TEMPLATE = """
                         </div>
                     </div>
 
-                    <!-- إجمالي السنة المختارة -->
                     <div class="bg-gradient-to-br from-indigo-950/50 via-slate-950 to-slate-950 p-5 rounded-2xl border border-indigo-500/30 flex flex-col justify-between shadow-inner">
                         <div class="flex justify-between items-center border-b border-indigo-500/20 pb-3">
                             <span id="selectedYearTitle" class="text-sm font-black text-indigo-300">📅 إجمالي السنة المحددة</span>
@@ -179,7 +236,6 @@ HTML_TEMPLATE = """
                 </div>
             </div>
 
-            <!-- حاوية عرض النتائج المفلترة -->
             <div id="filteredReportContainer" class="space-y-6"></div>
         </div>
     </div>
@@ -352,8 +408,6 @@ HTML_TEMPLATE = """
                     const mData = yData.months[month];
                     const monthName = monthNames[month] || month;
 
-                    ensureFridaysInMonth(year, month, mData);
-
                     const monthCard = document.createElement('div');
                     monthCard.className = "bg-slate-900/90 rounded-3xl border border-slate-800 overflow-hidden shadow-xl mb-4";
 
@@ -383,7 +437,7 @@ HTML_TEMPLATE = """
                                 <span class="text-indigo-400 font-black text-lg">📅</span>
                                 <div>
                                     <h4 class="font-black text-white text-base">شهر ${monthName} - سنة ${year}</h4>
-                                    <p class="text-xs text-slate-400 mt-0.5">اضغط هنا لعرض تفاصيل الحركات (${mData.txs.length} حركة)</p>
+                                    <p class="text-xs text-slate-400 mt-0.5">عرض الحركات (${mData.txs.length} حركة)</p>
                                 </div>
                             </div>
                             <div class="flex flex-wrap gap-3 text-xs font-bold items-center">
@@ -414,33 +468,6 @@ HTML_TEMPLATE = """
                     container.appendChild(monthCard);
                 });
             });
-        }
-
-        function ensureFridaysInMonth(year, month, mData) {
-            const today = new Date();
-            const yearNum = parseInt(year);
-            const monthNum = parseInt(month);
-            const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
-
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dayStr = day < 10 ? '0' + day : '' + day;
-                const dateString = `${year}-${month}-${dayStr}`;
-                const checkDate = new Date(dateString);
-
-                if (checkDate.getDay() === 5 && checkDate <= today) {
-                    const exists = mData.txs.some(tx => tx.date === dateString);
-                    if (!exists) {
-                        mData.txs.push({
-                            id: 'auto_fri_' + dateString,
-                            date: dateString,
-                            type: 'إيراد',
-                            amount: 0.0,
-                            description: 'إجازة',
-                            isAuto: true
-                        });
-                    }
-                }
-            }
         }
 
         function toggleDetails(headerElem) {
@@ -474,7 +501,6 @@ HTML_TEMPLATE = """
         }
 
         async function deleteTransaction(id) {
-            if(id.startsWith('auto_fri_')) return;
             const res = await fetch('/delete/' + id, { method: 'DELETE' });
             const result = await res.json();
             if(result.status === 'success') {
@@ -603,6 +629,55 @@ def delete_transaction(tx_id):
     try:
         db.collection('transactions').document(tx_id).delete()
         return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# استقبال ويب هوك (Webhook) من تيليجرام لإدارة البوت
+@app.route('/webhook/telegram', methods=['POST'])
+def telegram_webhook():
+    try:
+        data = request.json
+        if 'message' in data:
+            msg = data['message']
+            chat_id = msg['chat']['id']
+            text = msg.get('text', '').strip()
+
+            if text == '/start':
+                send_telegram_message("أهلاً بك يا تركي في نظامك المحاسبي الذكي عبر تيليجرام 🚀\n\nالأوامر المتاحة:\n- `/stats` لعرض إجمالي الإيرادات والمصروفات\n- لتسجيل حركة مباشرة أرسل بالشكل:\n`إيراد 500 مبيعات متجر` أو `مصروف 120 فاتورة كهرباء`", chat_id)
+            elif text == '/stats':
+                # حساب الإيرادات والمصروفات سريعاً
+                docs = db.collection('transactions').stream()
+                rev, exp = 0.0, 0.0
+                for doc in docs:
+                    d = doc.to_dict()
+                    amt = float(d.get('amount', 0))
+                    if d.get('type') == 'إيراد': rev += amt
+                    else: exp += amt
+                net = rev - exp
+                send_telegram_message(f"📊 *التقرير المالي السريع:*\n\n📈 الإيرادات: `{rev:,.2f}`\n📉 المصروفات: `{exp:,.2f}`\n💰 الصافي: `{net:,.2f}`", chat_id)
+            else:
+                # محاولة تفسير الرسالة كتسجيل حركة مالية سريعة (مثال: إيراد 300 مبيعات)
+                parts = text.split(' ', 2)
+                if len(parts) >= 2 and parts[0] in ['إيراد', 'مصروف']:
+                    tx_type = parts[0]
+                    try:
+                        amount = float(parts[1])
+                        description = parts[2] if len(parts) > 2 else 'حركة عبر تيليجرام'
+                        today_str = datetime.utcnow().strftime('%Y-%m-%d')
+
+                        db.collection('transactions').add({
+                            'date': today_str,
+                            'type': tx_type,
+                            'amount': amount,
+                            'description': description,
+                            'created_at': datetime.utcnow()
+                        })
+                        send_telegram_message(f"✅ تم تسجيل الـ{tx_type} بنجاح!\n- المبلغ: `{amount}`\n- البيان: {description}\n- التاريخ: {today_str}", chat_id)
+                    except ValueError:
+                        send_telegram_message("❌ خطأ: يرجى كتابة المبلغ بصيغة صحيحة. مثال:\n`إيراد 500 مبيعات`", chat_id)
+                else:
+                    send_telegram_message("❓ لم أفهم هذا الأمر. أرسل `/stats` أو سجل حركة كالتالي:\n`إيراد 200 وجبة غداء`", chat_id)
+        return jsonify({'status': 'ok'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
