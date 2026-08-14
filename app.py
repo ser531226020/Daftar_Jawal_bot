@@ -117,7 +117,7 @@ HTML_TEMPLATE = """
                 <div class="w-14 h-14 bg-gradient-to-tr from-emerald-600 to-teal-600 rounded-2xl flex items-center justify-center shadow-xl shadow-emerald-600/30 text-3xl font-black text-white">ط</div>
                 <div>
                     <h1 class="text-2xl font-black tracking-wide text-white">النظام المحاسبي الذكي بوتي</h1>
-                    <p class="text-xs text-emerald-400 font-bold mt-1">V2.8 | عرض التاريخ ببساطة وبدون تعقيد 🚀</p>
+                    <p class="text-xs text-emerald-400 font-bold mt-1">V2.9 | ميزة عرض آخر 10 أيام بسلاسة تامة 🚀</p>
                 </div>
             </div>
             <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2">
@@ -135,7 +135,7 @@ def index():
 
 @app.route('/webhook/telegram', methods=['POST'])
 def telegram_webhook():
-    """المعالج الذكي السريع لرسائل وأزرار تيليجرام (عرض مبسط)"""
+    """المعالج الذكي السريع لرسائل وأزرار تيليجرام (عرض آخر 10 أيام)"""
     try:
         data = request.json
         print("Telegram incoming data:", json.dumps(data, ensure_ascii=False))
@@ -179,7 +179,8 @@ def telegram_webhook():
                 keyboard_rows = []
                 day_names_ar = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
                 
-                for i in range(2, 7):
+                # عرض آخر 10 أيام سابقة لحرية الاختيار التام
+                for i in range(2, 12):
                     d = datetime.utcnow() - timedelta(days=i)
                     d_str = d.strftime('%Y-%m-%d')
                     d_name = day_names_ar[d.weekday()]
@@ -188,7 +189,7 @@ def telegram_webhook():
                 keyboard_rows.append([{"text": "🔙 رجوع للخيار السابق", "callback_data": f"back_to_reg_{amount}_{description}"}])
                 
                 type_name = 'إيراد' if tx_type == 'rev' else 'مصروف'
-                edit_telegram_message(chat_id, message_id, f"📅 *اختر اليوم المطلوب للـ {type_name}:*\n- المبلغ: `{amount}`\n- البيان: `{description}`", {"inline_keyboard": keyboard_rows})
+                edit_telegram_message(chat_id, message_id, f"📅 *اختر اليوم المطلوب للـ {type_name} (آخر 10 أيام):*\n- المبلغ: `{amount}`\n- البيان: `{description}`", {"inline_keyboard": keyboard_rows})
                 return jsonify({'status': 'ok'})
 
             elif data_str.startswith('savdate_'):
