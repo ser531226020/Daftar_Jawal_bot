@@ -1,15 +1,32 @@
 from datetime import datetime
+import os
+import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 from flask import Flask, jsonify, render_template_string, request
 
-# تهيئة Firebase
+if 'FIREBASE_CONFIG_JSON' in os.environ:
+    try:
+        raw_config = os.environ['FIREBASE_CONFIG_JSON'].strip()
+        # تنظيف علامات التنصيص الزائدة إن وجدت
+        if raw_config.startswith("'") and raw_config.endswith("'"):
+            raw_config = raw_config[1:-1]
+        elif raw_config.startswith('"') and raw_config.endswith('"'):
+            raw_config = raw_config[1:-1]
+            
+        firebase_config = json.loads(raw_config)
+        cred = credentials.Certificate(firebase_config)
+    except Exception as e:
+        raise ValueError(f"فشل قراءة متغير البيئة FIREBASE_CONFIG_JSON كـ JSON صحيح: {e}")
+elif os.path.exists("serviceAccountKey.json"):
+    cred = credentials.Certificate("serviceAccountKey.json")
+else:
+    raise FileNotFoundError("تنبيه هام: لم يتم العثور على ملف serviceAccountKey.json محلياً ولا متغير البيئة FIREBASE_CONFIG_JSON!")
+
 if not firebase_admin._apps:
-  cred = credentials.Certificate("serviceAccountKey.json")
-  firebase_admin.initialize_app(cred, {"projectId": "turki-2030"})
+    firebase_admin.initialize_app(cred, {"projectId": "turki-2030"})
 
 db = firestore.client()
-
 app = Flask(__name__)
 
 HTML_TEMPLATE = """
@@ -52,7 +69,7 @@ HTML_TEMPLATE = """
             </button>
         </div>
 
-        <!-- التبويب الأول: تسجيل حركة جديدة (يدعم الإضافة والتعديل) -->
+        <!-- التبويب الأول: تسجيل حركة جديدة -->
         <div id="tabInput" class="bg-slate-900/90 shadow-2xl rounded-3xl p-8 border border-slate-800 max-w-3xl mx-auto space-y-6">
             <h2 id="formTitle" class="text-xl font-black text-white pb-4 border-b border-slate-800">تسجيل حركة مالية جديدة</h2>
             <form id="txForm" class="space-y-5">
@@ -97,8 +114,6 @@ HTML_TEMPLATE = """
 
         <!-- التبويب الثاني: التقارير المالية المتقدمة -->
         <div id="tabReports" class="hidden space-y-6">
-            
-            <!-- الكروت الإحصائية الكبرى للأعلى -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div class="bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-900 p-6 rounded-3xl border border-emerald-500/30 shadow-2xl relative overflow-hidden">
                     <p class="text-xs text-emerald-400 font-black uppercase tracking-wider">إجمالي الإيرادات الكلي</p>
@@ -114,7 +129,7 @@ HTML_TEMPLATE = """
                 </div>
             </div>
 
-            <!-- لوحة الفرز والفلترة + المستطيل المخصص لإجمالي السنة -->
+            <!-- لوحة الفرز والفلترة -->
             <div class="bg-slate-900/90 p-6 rounded-3xl border border-slate-800 shadow-xl space-y-5">
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <h3 class="text-base font-black text-indigo-300">🔍 تصفية التقارير حسب السنوات والشهور</h3>
@@ -167,7 +182,6 @@ HTML_TEMPLATE = """
             <!-- حاوية عرض النتائج المفلترة -->
             <div id="filteredReportContainer" class="space-y-6"></div>
         </div>
-
     </div>
 
     <script>
@@ -338,14 +352,12 @@ HTML_TEMPLATE = """
                     const mData = yData.months[month];
                     const monthName = monthNames[month] || month;
 
-                    // فحص أيام الجمعة وتوليدها تلقائياً إذا لم تكن موجودة في الشهر لضمان تسلسل الأيام
                     ensureFridaysInMonth(year, month, mData);
 
                     const monthCard = document.createElement('div');
                     monthCard.className = "bg-slate-900/90 rounded-3xl border border-slate-800 overflow-hidden shadow-xl mb-4";
 
                     let rowsHTML = '';
-                    // ترتيب حركات الشهر حسب التاريخ تنازلياً أو تصاعدياً
                     mData.txs.sort((a, b) => new Date(b.date) - new Date(a.date));
 
                     mData.txs.forEach(tx => {
@@ -371,7 +383,7 @@ HTML_TEMPLATE = """
                                 <span class="text-indigo-400 font-black text-lg">📅</span>
                                 <div>
                                     <h4 class="font-black text-white text-base">شهر ${monthName} - سنة ${year}</h4>
-                                    <p class="text-xs text-slate-400 mt-0.5">اضغط هنا لعرض تفاصيل الأيام الحركات (${mData.txs.length} حركة)</p>
+                                    <p class="text-xs text-slate-400 mt-0.5">اضغط هنا لعرض تفاصيل الحركات (${mData.txs.length} حركة)</p>
                                 </div>
                             </div>
                             <div class="flex flex-wrap gap-3 text-xs font-bold items-center">
@@ -404,13 +416,10 @@ HTML_TEMPLATE = """
             });
         }
 
-        // دالة التأكد من حقن أيام الجمعة المنقضية آلياً إذا لم تكن مسجلة
         function ensureFridaysInMonth(year, month, mData) {
             const today = new Date();
             const yearNum = parseInt(year);
             const monthNum = parseInt(month);
-            
-            // حساب عدد الأيام في هذا الشهر
             const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
 
             for (let day = 1; day <= daysInMonth; day++) {
@@ -418,12 +427,9 @@ HTML_TEMPLATE = """
                 const dateString = `${year}-${month}-${dayStr}`;
                 const checkDate = new Date(dateString);
 
-                // هل اليوم هو جمعة وقد حل فعلاً (تاريخه أصغر من أو يساوي تاريخ اليوم الحالي)؟
                 if (checkDate.getDay() === 5 && checkDate <= today) {
-                    // فحص هل يوم الجمعة هذا موجود مسبقاً في حركات الشهر؟
                     const exists = mData.txs.some(tx => tx.date === dateString);
                     if (!exists) {
-                        // حقن يوم الجمعة تلقائياً محلياً في العرض
                         mData.txs.push({
                             id: 'auto_fri_' + dateString,
                             date: dateString,
@@ -443,10 +449,7 @@ HTML_TEMPLATE = """
         }
 
         function editTransaction(id, date, type, amount, description) {
-            if(id.startsWith('auto_fri_')) {
-                alert('هذا يوم جمعة تم حقنه تلقائياً كإجازة، يمكنك تسجيل حركة نظامية أو تعديلها.');
-                return;
-            }
+            if(id.startsWith('auto_fri_')) return;
             document.getElementById('editId').value = id;
             document.getElementById('date').value = date;
             document.getElementById('type').value = type;
@@ -471,27 +474,21 @@ HTML_TEMPLATE = """
         }
 
         async function deleteTransaction(id) {
-            if(id.startsWith('auto_fri_')) {
-                alert('لا يمكن حذف أيام الإجازات المولدة تلقائياً.');
-                return;
-            }
-            if(!confirm('هل أنت متأكد من حذف هذه الحركة؟')) return;
+            if(id.startsWith('auto_fri_')) return;
             const res = await fetch('/delete/' + id, { method: 'DELETE' });
             const result = await res.json();
             if(result.status === 'success') {
                 loadReport();
-            } else {
-                alert('حدث خطأ أثناء الحذف');
             }
         }
 
         function exportToCSV() {
-            let csv = 'اليوم والتاريخ,النوع,المبلغ,البيان\\n';
+            let csv = 'اليوم والتاريخ,النوع,المبلغ,البيان\n';
             globalTransactions.forEach(tx => {
                 const dayName = getDayNameArabic(tx.date);
-                csv += `${dayName} ${tx.date},${tx.type},${tx.amount},"${tx.description || ''}"\\n`;
+                csv += `${dayName} ${tx.date},${tx.type},${tx.amount},"${tx.description || ''}"\n`;
             });
-            const blob = new Blob(["\\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -529,115 +526,84 @@ HTML_TEMPLATE = """
                 switchTab('reports');
             } else {
                 msg.className = "mt-4 p-4 rounded-2xl text-center text-sm font-black bg-rose-500/10 text-rose-400 border border-rose-500/20";
-                msg.innerText = "حدث خطأ أثناء العملية!";
+                msg.innerText = "حدث خطأ أثناء الحفظ.";
             }
         });
-
-        loadReport();
     </script>
 </body>
 </html>
 """
 
+@app.route('/')
+def index():
+    return render_template_string(HTML_TEMPLATE)
 
-@app.route("/")
-def home():
-  return render_template_string(HTML_TEMPLATE)
+@app.route('/api/report', methods=['GET'])
+def api_report():
+    try:
+        docs = db.collection('transactions').stream()
+        transactions = []
+        total_rev = 0.0
+        total_exp = 0.0
 
+        for doc in docs:
+            d = doc.to_dict()
+            d['id'] = doc.id
+            amt = float(d.get('amount', 0))
+            d['amount'] = amt
+            transactions.append(d)
+            if d.get('type') == 'إيراد':
+                total_rev += amt
+            else:
+                total_exp += amt
 
-@app.route("/add", methods=["POST"])
+        net = total_rev - total_exp
+        return jsonify({
+            'status': 'success',
+            'transactions': transactions,
+            'total_revenue': total_rev,
+            'total_expense': total_exp,
+            'net': net
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/add', methods=['POST'])
 def add_transaction():
-  data = request.json
-  date_str = data.get("date")
-  year_val = int(date_str.split("-")[0])
-  month_val = int(date_str.split("-")[1])
+    try:
+        data = request.json
+        db.collection('transactions').add({
+            'date': data.get('date'),
+            'type': data.get('type'),
+            'amount': float(data.get('amount', 0)),
+            'description': data.get('description', ''),
+            'created_at': datetime.utcnow()
+        })
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
-  tx_data = {
-      "date": date_str,
-      "type": data.get("type"),
-      "amount": float(data.get("amount")),
-      "description": data.get("description", ""),
-      "year": year_val,
-      "month": month_val,
-  }
-
-  db.collection("transactions").add(tx_data)
-  return jsonify({"status": "success"})
-
-
-@app.route("/update/<tx_id>", methods=["PUT"])
+@app.route('/update/<tx_id>', methods=['PUT'])
 def update_transaction(tx_id):
-  try:
-    data = request.json
-    date_str = data.get("date")
-    year_val = int(date_str.split("-")[0])
-    month_val = int(date_str.split("-")[1])
+    try:
+        data = request.json
+        db.collection('transactions').document(tx_id).update({
+            'date': data.get('date'),
+            'type': data.get('type'),
+            'amount': float(data.get('amount', 0)),
+            'description': data.get('description', '')
+        })
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
-    tx_data = {
-        "date": date_str,
-        "type": data.get("type"),
-        "amount": float(data.get("amount")),
-        "description": data.get("description", ""),
-        "year": year_val,
-        "month": month_val,
-    }
-
-    db.collection("transactions").document(tx_id).set(tx_data)
-    return jsonify({"status": "success"})
-  except Exception as e:
-    return jsonify({"status": "error", "message": str(e)})
-
-
-@app.route("/delete/<tx_id>", methods=["DELETE"])
+@app.route('/delete/<tx_id>', methods=['DELETE'])
 def delete_transaction(tx_id):
-  try:
-    db.collection("transactions").document(tx_id).delete()
-    return jsonify({"status": "success"})
-  except Exception as e:
-    return jsonify({"status": "error", "message": str(e)})
+    try:
+        db.collection('transactions').document(tx_id).delete()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
-
-@app.route("/api/report")
-def get_report():
-  docs = (
-      db.collection("transactions")
-      .order_by("date", direction="DESCENDING")
-      .stream()
-  )
-
-  transactions = []
-  total_revenue = 0.0
-  total_expense = 0.0
-
-  for doc in docs:
-    d = doc.to_dict()
-    amount = float(d.get("amount", 0))
-    t_type = d.get("type", "إيراد")
-
-    if t_type == "إيراد":
-      total_revenue += amount
-    else:
-      total_expense += amount
-
-    transactions.append({
-        "id": doc.id,
-        "date": d.get("date"),
-        "type": t_type,
-        "amount": amount,
-        "description": d.get("description"),
-    })
-
-  net = total_revenue - total_expense
-
-  return jsonify({
-      "total_revenue": total_revenue,
-      "total_expense": total_expense,
-      "net": net,
-      "transactions": transactions,
-  })
-
-
-if __name__ == "__main__":
-  print("🚀 تشغيل النظام المالي الذكي المحدث...")
-  print("افتح الرابط التالي في متصفحك: http://127.0.0.1:5000")
-  app.run(debug=True, port=5000)
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
