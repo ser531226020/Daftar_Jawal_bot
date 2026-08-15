@@ -1,4 +1,3 @@
-# STREAMING_CHUNK:Updating app.py with security check and advanced financial analytics engine
 from datetime import datetime, timedelta
 import os
 import json
@@ -36,8 +35,10 @@ TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
 
 def send_telegram_message(message, chat_id=None, reply_markup=None):
+    """إرسال رسالة أو لوحة مفاتيح تفاعلية عبر بوت تيليجرام"""
     target_chat = chat_id or TELEGRAM_CHAT_ID
     if not TELEGRAM_BOT_TOKEN or not target_chat:
+        print("تنبيه: توكن تيليجرام أو معرف الشات غير متوفر لإرسال الرسالة.")
         return False
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
@@ -56,6 +57,7 @@ def send_telegram_message(message, chat_id=None, reply_markup=None):
         return False
 
 def edit_telegram_message(chat_id, message_id, text, reply_markup=None):
+    """تعديل رسالة موجودة في تيليجرام للتنقل السلس والسريع"""
     if not TELEGRAM_BOT_TOKEN:
         return False
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
@@ -75,6 +77,7 @@ def edit_telegram_message(chat_id, message_id, text, reply_markup=None):
         return False
 
 def daily_check_yesterday_transaction():
+    """فحص ما إذا تم تسجيل حركة لليوم السابق، وإن لم يوجد يرسل تنبيه تيليجرام"""
     try:
         yesterday = datetime.utcnow() - timedelta(days=1)
         yesterday_str = yesterday.strftime('%Y-%m-%d')
@@ -87,7 +90,7 @@ def daily_check_yesterday_transaction():
         valid_records = [r for r in records if r.get('description') != 'إجازة' and float(r.get('amount', 0)) >= 0]
 
         if not valid_records:
-            msg = f"⚠️ *تنبيه محاسبي هام!*\n\nعزيزي أبو مصعب، لاحظنا أنه لم يتم تسجيل أي حركة مالية ليوم أمس *{day_name} ({yesterday_str})*.\n\nيرجى تسجيل الحركة في أقرب وقت! 💡"
+            msg = f"⚠️ *تنبيه محاسبي هام!*\n\nعزيزي تركي، لاحظنا أنه لم يتم تسجيل أي حركة مالية ليوم أمس *{day_name} ({yesterday_str})*.\n\nيرجى تسجيل الحركة أو مراجعة النظام في أقرب وقت! 💡"
             send_telegram_message(msg)
     except Exception as e:
         print(f"خطأ في الفحص اليومي: {e}")
@@ -102,7 +105,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>النظام المالي المؤسسي - أبو مصعب</title>
+    <title>النظام المالي المؤسسي - مع إدارة تيليجرام المبسطة</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style> body { font-family: 'Cairo', sans-serif; } </style>
@@ -111,14 +114,14 @@ HTML_TEMPLATE = """
     <div class="max-w-7xl mx-auto space-y-6">
         <div class="bg-slate-900/90 backdrop-blur-xl shadow-2xl rounded-3xl p-6 border border-slate-800 flex flex-wrap justify-between items-center gap-4">
             <div class="flex items-center space-x-4 space-x-reverse">
-                <div class="w-14 h-14 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/30 text-3xl font-black text-white">ط</div>
+                <div class="w-14 h-14 bg-gradient-to-tr from-emerald-600 to-teal-600 rounded-2xl flex items-center justify-center shadow-xl shadow-emerald-600/30 text-3xl font-black text-white">ط</div>
                 <div>
-                    <h1 class="text-2xl font-black tracking-wide text-white">النظام المحاسبي الذكي - أبو مصعب</h1>
-                    <p class="text-xs text-indigo-400 font-bold mt-1">V2.9 | حماية أمنية صارمة + محرك التحليلات الذكية 🚀</p>
+                    <h1 class="text-2xl font-black tracking-wide text-white">النظام المحاسبي الذكي بوتي</h1>
+                    <p class="text-xs text-emerald-400 font-bold mt-1">V3.0 | مطابقة التقويم الفعلي بدقة تامة 🚀</p>
                 </div>
             </div>
             <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> النظام يعمل بأمان تام 24/7
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> النظام يعمل بكفاءة تامة
             </span>
         </div>
     </div>
@@ -132,23 +135,14 @@ def index():
 
 @app.route('/webhook/telegram', methods=['POST'])
 def telegram_webhook():
+    """المعالج الذكي السريع لرسائل وأزرار تيليجرام (حساب دقيق للتقويم الفعلي 10 أيام للخلف)"""
     try:
         data = request.json
         print("Telegram incoming data:", json.dumps(data, ensure_ascii=False))
 
-        chat_id = None
-        if 'callback_query' in data:
-            chat_id = data['callback_query']['message']['chat']['id']
-        elif 'message' in data:
-            chat_id = data['message']['chat']['id']
-
-        # حماية أمنية صارمة: رفض أي شات غير معرّف لديك يا أبو مصعب
-        if TELEGRAM_CHAT_ID and chat_id and str(chat_id) != str(TELEGRAM_CHAT_ID):
-            print(f"⚠️ محاولة وصول غير مصرح بها من Chat ID: {chat_id}")
-            return jsonify({'status': 'unauthorized'}), 403
-
         if 'callback_query' in data:
             cb = data['callback_query']
+            chat_id = cb['message']['chat']['id']
             message_id = cb['message']['message_id']
             data_str = cb.get('data', '')
 
@@ -173,39 +167,38 @@ def telegram_webhook():
                 })
 
                 when_name = 'اليوم' if when == 'tod' else 'أمس'
-                edit_telegram_message(chat_id, message_id, f"✅ *تم الحفظ بنجاح يا أبو مصعب!*\n\n- النوع: `{tx_type}` ({when_name})\n- التاريخ: `{date_str}`\n- المبلغ: `{amount}`\n- البيان: `{description}`")
+                edit_telegram_message(chat_id, message_id, f"✅ *تم الحفظ بنجاح!*\n\n📌 النوع: `{tx_type}`\n📅 التاريخ: `{date_str}` ({when_name})\n💰 المبلغ: `{amount}`\n📝 البيان: `{description}`")
                 return jsonify({'status': 'ok'})
 
             elif data_str.startswith('pickdate_'):
-                parts = data_str.split('_', 3)
+                parts = data_str.split('_')
                 tx_type = parts[1]
                 amount = parts[2]
                 description = parts[3] if len(parts) > 3 else 'بدون بيان'
 
                 keyboard_rows = []
-                day_names_ar = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+                day_names_ar = ['الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد']
                 
-                # حساب آخر 10 أيام مطابقة للتقويم الفعلي بدقة
+                # حساب دقيق ومطابق للتقويم الفعلي بالرجوع 10 أيام للخلف يوماً بيوم
+                now_utc = datetime.utcnow()
                 for i in range(1, 11):
-                    d = datetime.utcnow() - timedelta(days=i)
+                    d = now_utc - timedelta(days=i)
                     d_str = d.strftime('%Y-%m-%d')
+                    # python weekday: 0=Monday, 6=Sunday -> map to day_names_ar
                     d_name = day_names_ar[d.weekday()]
                     keyboard_rows.append([{
-                        "text": f"📅 {d_name} ({d_str})", 
+                        "text": f"📌 {d_name} ({d_str})", 
                         "callback_data": f"savdate_{tx_type}_{d_str}_{amount}_{description}"
                     }])
 
-                keyboard_rows.append([{
-                    "text": "🔙 رجوع للخيار السابق", 
-                    "callback_data": f"back_to_reg_{amount}_{description}"
-                }])
+                keyboard_rows.append([{"text": "🔙 رجوع للخيار السابق", "callback_data": f"back_to_reg_{amount}_{description}"}])
                 
                 type_name = 'إيراد' if tx_type == 'rev' else 'مصروف'
-                edit_telegram_message(chat_id, message_id, f"📅 *اختر اليوم المطلوب لـ {type_name} (آخر 10 أيام):*\n- المبلغ: `{amount}`\n- البيان: `{description}`", {"inline_keyboard": keyboard_rows})
+                edit_telegram_message(chat_id, message_id, f"📅 *اختر اليوم المطلوب للـ {type_name} (مطابق للتقويم الفعلي - آخر 10 أيام):*\n- المبلغ: `{amount}`\n- البيان: `{description}`", {"inline_keyboard": keyboard_rows})
                 return jsonify({'status': 'ok'})
 
             elif data_str.startswith('savdate_'):
-                parts = data_str.split('_', 4)
+                parts = data_str.split('_')
                 tx_type = 'إيراد' if parts[1] == 'rev' else 'مصروف'
                 date_str = parts[2]
                 amount = float(parts[3])
@@ -219,13 +212,13 @@ def telegram_webhook():
                     'created_at': datetime.utcnow()
                 })
 
-                edit_telegram_message(chat_id, message_id, f"✅ *تم الحفظ بنجاح بالتاريخ المختار!*\n\n- النوع: `{tx_type}`\n- التاريخ: `{date_str}`\n- المبلغ: `{amount}`\n- البيان: `{description}`")
+                edit_telegram_message(chat_id, message_id, f"✅ *تم الحفظ بنجاح!*\n\n📌 النوع: `{tx_type}`\n📅 التاريخ: `{date_str}`\n💰 المبلغ: `{amount}`\n📝 البيان: `{description}`")
                 return jsonify({'status': 'ok'})
 
             elif data_str.startswith('back_to_reg_'):
-                parts = data_str.split('_', 3)
-                amount = parts[2]
-                description = parts[3] if len(parts) > 3 else 'بدون بيان'
+                parts = data_str.split('_')
+                amount = parts[3]
+                description = parts[4] if len(parts) > 4 else 'بدون بيان'
                 
                 prompt_msg = f"💰 المبلغ: `{amount}`\n📝 البيان: `{description}`\n\nاختر نوع الحركة والتاريخ للتسجيل الفوري:"
                 keyboard = {
@@ -236,11 +229,11 @@ def telegram_webhook():
                         ],
                         [
                             {"text": "🔴 مصروف (اليوم)", "callback_data": f"reg_exp_tod_{amount}_{description}"},
-                            {"text": f"🔴 مصروف (أمس)", "callback_data": f"reg_exp_yes_{amount}_{description}"}
+                            {"text": "🔴 مصروف (أمس)", "callback_data": f"reg_exp_yes_{amount}_{description}"}
                         ],
                         [
-                            {"text": "📅 اختيار تاريخ مخصص (إيراد)", "callback_data": f"pickdate_rev_{amount}_{description}"},
-                            {"text": "📅 اختيار تاريخ مخصص (مصروف)", "callback_data": f"pickdate_exp_{amount}_{description}"}
+                            {"text": "📅 يوم آخر (إيراد)", "callback_data": f"pickdate_rev_{amount}_{description}"},
+                            {"text": "📅 يوم آخر (مصروف)", "callback_data": f"pickdate_exp_{amount}_{description}"}
                         ]
                     ]
                 }
@@ -279,9 +272,9 @@ def telegram_webhook():
                     if not valid:
                         missing_days.append(d_str)
 
-                msg = "📅 *الأيام التي لم يتم تسجيل حركات لها (آخر 10 أيام):*\n\n"
+                msg = "📅 *الأيام غير المسجلة (آخر 10 أيام):*\n\n"
                 if not missing_days:
-                    msg += "رائع جداً يا أبو مصعب! جميع الأيام مسجلة وليست هناك أيام ناقصة. ✅"
+                    msg += "رائع جداً! جميع الأيام مسجلة وليست هناك أيام ناقصة. ✅"
                 else:
                     msg += "الأيام التالية خالية من الحركات:\n" + "\n".join([f"• `{day}`" for day in missing_days])
 
@@ -294,118 +287,59 @@ def telegram_webhook():
                 edit_telegram_message(chat_id, message_id, msg, keyboard)
                 return jsonify({'status': 'ok'})
 
-            # محرك التحليلات الذكية الجديد
-            elif data_str == 'menu_analytics':
-                try:
-                    docs = db.collection('transactions').stream()
-                    all_txs = [d.to_dict() for d in docs]
-
-                    if not all_txs:
-                        msg = "📊 *التحليلات الذكيةة:*\n\nلا توجد بيانات كافية لإجراء التحليلات حتى الآن."
-                    else:
-                        # تجميع الدخل حسب الأيام
-                        day_revs = {}
-                        year_revs = {}
-                        day_exps = {}
-
-                        for t in all_txs:
-                            dt = t.get('date', '')
-                            amt = float(t.get('amount', 0))
-                            t_type = t.get('type', '')
-
-                            if dt:
-                                if t_type == 'إيراد':
-                                    day_revs[dt] = day_revs.get(dt, 0.0) + amt
-                                    yr = dt[:4]
-                                    year_revs[yr] = year_revs.get(yr, 0.0) + amt
-                                elif t_type == 'مصروف':
-                                    day_exps[dt] = day_exps.get(dt, 0.0) + amt
-
-                        max_rev_day = max(day_revs, key=day_revs.get) if day_revs else 'لا يوجد'
-                        min_rev_day = min(day_revs, key=day_revs.get) if day_revs else 'لا يوجد'
-                        max_year = max(year_revs, key=year_revs.get) if year_revs else 'لا يوجد'
-                        min_year = min(year_revs, key=year_revs.get) if year_revs else 'لا يوجد'
-                        max_exp_day = max(day_exps, key=day_exps.get) if day_exps else 'لا يوجد'
-
-                        msg = (
-                            "📊 *لوحة التحليلات والذكاء المالي:*\n\n"
-                            f"📈 *أكثر يوم إيرادات (دخلاً):*\n   `{max_rev_day}` بقيمة `{day_revs.get(max_rev_day, 0):,.2f}`\n\n"
-                            f"📉 *أقل يوم إيرادات (دخلاً):*\n   `{min_rev_day}` بقيمة `{day_revs.get(min_rev_day, 0):,.2f}`\n\n"
-                            f"🔥 *أكثر يوم مصروفات:* \n   `{max_exp_day}` بقيمة `{day_exps.get(max_exp_day, 0):,.2f}`\n\n"
-                            f"🏆 *أكثر سنة دخلاً:* سنة `{max_year}` بإجمالي `{year_revs.get(max_year, 0):,.2f}`\n\n"
-                            f"📌 *أقل سنة دخلاً:* سنة `{min_year}` بإجمالي `{year_revs.get(min_year, 0):,.2f}`\n"
-                        )
-
-                    keyboard = {
-                        "inline_keyboard": [
-                            [{"text": "🔙 رجوع للقائمة الرئيسية", "callback_data": "menu_main"}],
-                            [{"text": "🚪 خروج", "callback_data": "menu_exit"}]
-                        ]
-                    }
-                    edit_telegram_message(chat_id, message_id, msg, keyboard)
-                except Exception as e:
-                    print(f"Error in analytics: {e}")
-                return jsonify({'status': 'ok'})
-
             elif data_str == 'menu_report':
-                try:
-                    docs = db.collection('transactions').stream()
-                    years = set()
-                    for doc in docs:
-                        d = doc.to_dict()
-                        if 'date' in d and len(d['date']) >= 4:
-                            years.add(d['date'][:4])
-                    
-                    sorted_years = sorted(list(years), reverse=True)
-                    if not sorted_years:
-                        sorted_years = [datetime.utcnow().strftime('%Y')]
+                docs = db.collection('transactions').stream()
+                years = set()
+                for doc in docs:
+                    d = doc.to_dict()
+                    if 'date' in d:
+                        years.add(d['date'].split('-')[0])
+                
+                sorted_years = sorted(list(years), reverse=True)
+                if not sorted_years:
+                    sorted_years = [datetime.utcnow().strftime('%Y')]
 
-                    keyboard_rows = []
-                    for y in sorted_years:
-                        keyboard_rows.append([{"text": f"📅 سنة {y}", "callback_data": f"year_{y}"}])
-                    
-                    keyboard_rows.append([{"text": "🔙 رجوع", "callback_data": "menu_main"}, {"text": "🚪 خروج", "callback_data": "menu_exit"}])
+                keyboard_rows = []
+                for y in sorted_years:
+                    keyboard_rows.append([{"text": f"📅 سنة {y}", "callback_data": f"year_{y}"}])
+                
+                keyboard_rows.append([{"text": "🔙 رجوع", "callback_data": "menu_main"}, {"text": "🚪 خروج", "callback_data": "menu_exit"}])
 
-                    edit_telegram_message(chat_id, message_id, "📊 *اختر السنة المالية لعرض الشهور:*", {"inline_keyboard": keyboard_rows})
-                except Exception as e:
-                    print(f"Error in menu_report: {e}")
+                edit_telegram_message(chat_id, message_id, "📊 *اختر السنة المالية:*", {"inline_keyboard": keyboard_rows})
                 return jsonify({'status': 'ok'})
 
             elif data_str.startswith('year_'):
                 year = data_str.split('_')[1]
                 start_date = f"{year}-01-01"
                 end_date = f"{year}-12-31"
-                try:
-                    docs = db.collection('transactions').where('date', '>=', start_date).where('date', '<=', end_date).stream()
-                    
-                    months = set()
-                    for doc in docs:
-                        d = doc.to_dict()
-                        if 'date' in d and len(d['date']) >= 7:
-                            months.add(d['date'][5:7])
+                docs = db.collection('transactions').where('date', '>=', start_date).where('date', '<=', end_date).stream()
+                
+                months = set()
+                for doc in docs:
+                    d = doc.to_dict()
+                    if 'date' in d:
+                        months.add(d['date'].split('-')[1])
 
-                    sorted_months = sorted(list(months), reverse=True)
-                    month_names = {"01": "يناير", "02": "فبراير", "03": "مارس", "04": "أبريل", "05": "مايو", "06": "يونيو", "07": "يوليو", "08": "أغسطس", "09": "سبتمبر", "10": "أكتوبر", "11": "نوفمبر", "12": "ديسمبر"}
+                sorted_months = sorted(list(months), reverse=True)
+                month_names = {"01": "يناير", "02": "فبراير", "03": "مارس", "04": "أبريل", "05": "مايو", "06": "يونيو", "07": "يوليو", "08": "أغسطس", "09": "سبتمبر", "10": "أكتوبر", "11": "نوفمبر", "12": "ديسمبر"}
 
-                    keyboard_rows = []
-                    row = []
-                    for m in sorted_months:
-                        m_name = month_names.get(m, m)
-                        row.append({"text": f"🗓️ {m_name} ({m})", "callback_data": f"month_{year}_{m}"})
-                        if len(row) == 2:
-                            keyboard_rows.append(row)
-                            row = []
-                    if row:
+                keyboard_rows = []
+                row = []
+                for m in sorted_months:
+                    m_name = month_names.get(m, m)
+                    row.append({"text": f"🗓️ {m_name}", "callback_data": f"month_{year}_{m}"})
+                    if len(row) == 2:
                         keyboard_rows.append(row)
+                        row = []
+                if row:
+                    keyboard_rows.append(row)
 
-                    keyboard_rows.append([
-                        {"text": "🔙 رجوع للسنوات", "callback_data": "menu_report"},
-                        {"text": "🚪 خروج", "callback_data": "menu_exit"}
-                    ])
+                keyboard_rows.append([
+                    {"text": "🔙 رجوع للسنوات", "callback_data": "menu_report"},
+                    {"text": "🚪 خروج", "callback_data": "menu_exit"}
+                ])
 
-                    edit_telegram_message(chat_id, message_id, f"📅 *سنة {year}* - اختر الشهر المطلوب:", {"inline_keyboard": keyboard_rows})
-                except Exception as e:
-                    print(f"Error in year_ selection: {e}")
+                edit_telegram_message(chat_id, message_id, f"📅 *سنة {year}* - اختر الشهر:", {"inline_keyboard": keyboard_rows})
                 return jsonify({'status': 'ok'})
 
             elif data_str.startswith('month_'):
@@ -419,60 +353,56 @@ def telegram_webhook():
                 start_date = f"{prefix}-01"
                 end_date = f"{prefix}-31"
                 
-                try:
-                    docs = db.collection('transactions').where('date', '>=', start_date).where('date', '<=', end_date).stream()
-                    month_txs = []
-                    rev_sum, exp_sum = 0.0, 0.0
-                    for doc in docs:
-                        d = doc.to_dict()
-                        if 'date' in d and d['date'].startswith(prefix):
-                            month_txs.append(d)
-                            amt = float(d.get('amount', 0))
-                            if d.get('type') == 'إيراد': rev_sum += amt
-                            else: exp_sum += amt
+                docs = db.collection('transactions').where('date', '>=', start_date).where('date', '<=', end_date).stream()
+                month_txs = []
+                rev_sum, exp_sum = 0.0, 0.0
+                for doc in docs:
+                    d = doc.to_dict()
+                    if 'date' in d and d['date'].startswith(prefix):
+                        month_txs.append(d)
+                        amt = float(d.get('amount', 0))
+                        if d.get('type') == 'إيراد': rev_sum += amt
+                        else: exp_sum += amt
 
-                    month_txs.sort(key=lambda x: x['date'], reverse=True)
+                month_txs.sort(key=lambda x: x['date'], reverse=True)
 
-                    msg = f"📊 *تقرير شهر {m_name} ({year}):*\n"
-                    msg += f"📈 الإيرادات: `{rev_sum:,.2f}` | 📉 المصروفات: `{exp_sum:,.2f}`\n"
-                    msg += f"💰 الصافي: `{(rev_sum - exp_sum):,.2f}`\n"
-                    msg += "──────────────────\n"
-                    
-                    if not month_txs:
-                        msg += "لا توجد حركات مسجلة في هذا الشهر."
-                    else:
-                        for t in month_txs:
-                            t_type = t.get('type')
-                            type_icon = '🟢' if t_type == 'إيراد' else '🔴'
-                            msg += f"{type_icon} *{t_type}* | 📅 `{t.get('date')}`\n"
-                            msg += f"   💰 المبلغ: `{t.get('amount')}`\n"
-                            msg += f"   📝 البيان: _{t.get('description', '-')}_\n"
-                            msg += "   ▫️▫️▫️▫️▫️▫️▫️\n"
+                msg = f"📊 *تقرير شهر {m_name} ({year}):*\n"
+                msg += f"📈 الإيرادات: `{rev_sum:,.2f}` | 📉 المصروفات: `{exp_sum:,.2f}`\n"
+                msg += f"💰 الصافي: `{(rev_sum - exp_sum):,.2f}`\n"
+                msg += "──────────────────\n"
+                
+                if not month_txs:
+                    msg += "لا توجد حركات مسجلة في هذا الشهر."
+                else:
+                    for t in month_txs:
+                        t_type = t.get('type')
+                        type_icon = '🟢' if t_type == 'إيراد' else '🔴'
+                        msg += f"{type_icon} *{t_type}* | 📅 `{t.get('date')}`\n"
+                        msg += f"   💰 المبلغ: `{t.get('amount')}`\n"
+                        msg += f"   📝 البيان: _{t.get('description', '-')}_\n"
+                        msg += "   ▫️▫️▫️▫️▫️▫️▫️\n"
 
-                    keyboard = {
-                        "inline_keyboard": [
-                            [
-                                {"text": f"🔙 رجوع لسنة {year}", "callback_data": f"year_{year}"},
-                                {"text": "🔙 قائمة السنوات", "callback_data": "menu_report"}
-                            ],
-                            [
-                                {"text": "🏠 القائمة الرئيسية", "callback_data": "menu_main"},
-                                {"text": "🚪 خروج", "callback_data": "menu_exit"}
-                            ]
+                keyboard = {
+                    "inline_keyboard": [
+                        [
+                            {"text": f"🔙 رجوع لسنة {year}", "callback_data": f"year_{year}"},
+                            {"text": "🔙 قائمة السنوات", "callback_data": "menu_report"}
+                        ],
+                        [
+                            {"text": "🏠 القائمة الرئيسية", "callback_data": "menu_main"},
+                            {"text": "🚪 خروج", "callback_data": "menu_exit"}
                         ]
-                    }
-                    edit_telegram_message(chat_id, message_id, msg, keyboard)
-                except Exception as e:
-                    print(f"Error in month_ report: {e}")
+                    ]
+                }
+                edit_telegram_message(chat_id, message_id, msg, keyboard)
                 return jsonify({'status': 'ok'})
 
             elif data_str == 'menu_main':
-                msg = "أهلاً بك يا أبو مصعب في نظامك المحاسبي الذكي 🚀\n\n• لتسجيل حركة فورية أرسل: `المبلغ البيان` (مثال: `50 غداء` أو `0 إجازة`)\n• أو اختر من القوائم أدناه:"
+                msg = "أهلاً بك يا تركي في نظامك المحاسبي الذكي 🚀\n\n• لتسجيل حركة فورية أرسل: `المبلغ البيان` (مثال: `50 غداء` أو `0 إجازة`)\n• أو اختر من القوائم أدناه:"
                 keyboard = {
                     "inline_keyboard": [
                         [{"text": "📋 حركات اليوم", "callback_data": "menu_today"}],
-                        [{"text": "📅 الأيام الغير مسجلة", "callback_data": "menu_missing"}],
-                        [{"text": "📈 التحليلات والذكاء المالي", "callback_data": "menu_analytics"}],
+                        [{"text": "📅 الأيام غير المسجلة", "callback_data": "menu_missing"}],
                         [{"text": "📊 تقرير تفصيلي", "callback_data": "menu_report"}]
                     ]
                 }
@@ -480,7 +410,7 @@ def telegram_webhook():
                 return jsonify({'status': 'ok'})
 
             elif data_str == 'menu_exit':
-                edit_telegram_message(chat_id, message_id, "✨ تم إغلاق القائمة بنجاح يا أبو مصعب. أرسل أي نص أو `(رقم + بيان)` في أي وقت لتفعيل النظام!")
+                edit_telegram_message(chat_id, message_id, "✨ تم إغلاق القائمة بنجاح. أرسل أي نص أو `(رقم + بيان)` في أي وقت لتفعيل النظام!")
                 return jsonify({'status': 'ok'})
 
         if 'message' in data:
@@ -489,12 +419,11 @@ def telegram_webhook():
             text = msg_obj.get('text', '').strip()
 
             if text == '/start':
-                msg = "أهلاً بك يا أبو مصعب في نظامك المحاسبي الذكي 🚀\n\n• لتسجيل حركة فورية اكتب مباشرة: `المبلغ البيان` (مثال: `100 مبيعات` أو `0 إجازة`)\n• أو اختر من القوائم أدناه:"
+                msg = "أهلاً بك يا تركي في نظامك المحاسبي الذكي 🚀\n\n• لتسجيل حركة فورية اكتب مباشرة: `المبلغ البيان` (مثال: `100 مبيعات متجر` أو `0 إجازة`)\n• أو اختر من القوائم أدناه:"
                 keyboard = {
                     "inline_keyboard": [
                         [{"text": "📋 حركات اليوم", "callback_data": "menu_today"}],
                         [{"text": "📅 الأيام الغير مسجلة", "callback_data": "menu_missing"}],
-                        [{"text": "📈 التحليلات والذكاء المالي", "callback_data": "menu_analytics"}],
                         [{"text": "📊 تقرير تفصيلي", "callback_data": "menu_report"}]
                     ]
                 }
@@ -519,8 +448,8 @@ def telegram_webhook():
                             {"text": "🔴 مصروف (أمس)", "callback_data": f"reg_exp_yes_{amount}_{description}"}
                         ],
                         [
-                            {"text": "📅 اختيار تاريخ مخصص (إيراد)", "callback_data": f"pickdate_rev_{amount}_{description}"},
-                            {"text": "📅 اختيار تاريخ مخصص (مصروف)", "callback_data": f"pickdate_exp_{amount}_{description}"}
+                            {"text": "📅 يوم آخر (إيراد)", "callback_data": f"pickdate_rev_{amount}_{description}"},
+                            {"text": "📅 يوم آخر (مصروف)", "callback_data": f"pickdate_exp_{amount}_{description}"}
                         ]
                     ]
                 }
@@ -528,12 +457,11 @@ def telegram_webhook():
                 return jsonify({'status': 'ok'})
 
             else:
-                msg = f"📋 *القوائم الرئيسية للنظام المحاسبي:*\n\nاستلمت رسالتك يا أبو مصعب: _{text}_\nاختر ما تحب استعراضه:"
+                msg = f"📋 *القوائم الرئيسية للنظام المحاسبي:*\n\nاستلمت رسالتك: _{text}_\nاختر ما تحب استعراضه:"
                 keyboard = {
                     "inline_keyboard": [
                         [{"text": "📋 حركات اليوم", "callback_data": "menu_today"}],
-                        [{"text": "📅 الأيام الغير مسجلة", "callback_data": "menu_missing"}],
-                        [{"text": "📈 التحليلات والذكاء المالي", "callback_data": "menu_analytics"}],
+                        [{"text": "📅 الأيام غير المسجلة", "callback_data": "menu_missing"}],
                         [{"text": "📊 تقرير تفصيلي", "callback_data": "menu_report"}]
                     ]
                 }
@@ -547,4 +475,3 @@ def telegram_webhook():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
-```eof
