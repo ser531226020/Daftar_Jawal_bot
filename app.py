@@ -146,7 +146,12 @@ def telegram_webhook():
         elif 'message' in data:
             chat_id = data['message']['chat']['id']
 
-        if TELEGRAM_CHAT_ID and chat_id and str(chat_id) != str(TELEGRAM_CHAT_ID):
+        # التحقق الآمن والمحدث للـ Chat ID مع طباعة البيانات لمراقبة السجلات
+        current_env_chat_id = os.environ.get('TELEGRAM_CHAT_ID', '')
+        print(f"DEBUG -> Incoming chat_id: {chat_id} | Env TELEGRAM_CHAT_ID: {current_env_chat_id}")
+
+        if current_env_chat_id and chat_id and str(chat_id) != str(current_env_chat_id):
+            print("ACCESS DENIED: Chat ID mismatch!")
             return jsonify({'status': 'unauthorized'}), 403
 
         if 'callback_query' in data:
